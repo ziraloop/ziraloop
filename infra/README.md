@@ -284,7 +284,7 @@ GitHub webhook — no GitHub Actions minutes consumed for builds.
 
 | Trigger | Action |
 |---------|--------|
-| Push to `main` | Build images, push to ECR |
+| Push to `main` | Build + deploy to staging |
 | Push to `develop` | Build + deploy to staging |
 | Tag `v*` | Build + deploy staging + deploy production |
 

@@ -80,13 +80,25 @@ export const SSM_PARAMS = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// Required environment variables (loaded from infra/.env via cdk.json)
+// ---------------------------------------------------------------------------
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+// ---------------------------------------------------------------------------
 // Environments — edit these to scale
 // ---------------------------------------------------------------------------
 
 export const production: EnvironmentConfig = {
   envName: 'prod',
-  account: process.env.CDK_DEFAULT_ACCOUNT!,
-  region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+  account: requireEnv('CDK_DEFAULT_ACCOUNT'),
+  region: requireEnv('CDK_DEFAULT_REGION'),
   phase: 'fargate',
 
   domains: {
@@ -109,13 +121,13 @@ export const production: EnvironmentConfig = {
   ec2InstanceType: 't4g.small',
 
   deletionProtection: true,
-  zitadelImage: 'ghcr.io/zitadel/zitadel:v4.11.0',
+  zitadelImage: 'ghcr.io/zitadel/zitadel:v4.12.1',
 };
 
 export const staging: EnvironmentConfig = {
   envName: 'staging',
-  account: process.env.CDK_DEFAULT_ACCOUNT!,
-  region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+  account: requireEnv('CDK_DEFAULT_ACCOUNT'),
+  region: requireEnv('CDK_DEFAULT_REGION'),
   phase: 'ec2',
 
   domains: {
@@ -138,5 +150,5 @@ export const staging: EnvironmentConfig = {
   ec2InstanceType: 't4g.small',
 
   deletionProtection: false,
-  zitadelImage: 'ghcr.io/zitadel/zitadel:v4.11.0',
+  zitadelImage: 'ghcr.io/zitadel/zitadel:v4.12.1',
 };

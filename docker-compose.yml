@@ -31,7 +31,7 @@ services:
   # --- ZITADEL (Identity & Auth) ---
 
   zitadel:
-    image: ghcr.io/zitadel/zitadel:v4.11.0
+    image: ghcr.io/zitadel/zitadel:v4.12.1
     user: "0"
     command: start-from-init --masterkey "${ZITADEL_MASTERKEY:?ZITADEL_MASTERKEY is required}"
     environment:

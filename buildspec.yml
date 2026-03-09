@@ -4,7 +4,7 @@
 # All configuration is injected via CodeBuild environment variables (see build-stack.ts).
 #
 # Branches:
-#   main    → build images only
+#   main    → build + deploy staging
 #   develop → build + deploy staging
 #   v* tag  → build + deploy staging + deploy production
 
@@ -28,7 +28,7 @@ phases:
           export TAG=${REF#refs/tags/}
           export DEPLOY_STAGING=true
           export DEPLOY_PROD=true
-        elif [[ "$REF" == refs/heads/develop ]]; then
+        elif [[ "$REF" == refs/heads/main || "$REF" == refs/heads/develop ]]; then
           export DEPLOY_STAGING=true
         fi
       - echo "Building $TAG (staging=$DEPLOY_STAGING prod=$DEPLOY_PROD)"

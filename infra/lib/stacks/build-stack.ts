@@ -21,7 +21,7 @@ export interface BuildStackProps extends cdk.StackProps {
  * for fast rebuilds.
  *
  * Trigger rules:
- *   push to main    → build images only
+ *   push to main    → build + deploy staging
  *   push to develop → build + deploy staging
  *   tag v*          → build + deploy staging + deploy production
  *
