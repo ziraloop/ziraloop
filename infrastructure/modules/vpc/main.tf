@@ -212,3 +212,29 @@ resource "aws_security_group" "vpc_endpoints" {
     create_before_destroy = true
   }
 }
+
+# ECS Tasks Security Group
+# Shared security group for all ECS Fargate tasks
+resource "aws_security_group" "ecs_tasks" {
+  name_prefix = "${var.name}-ecs-tasks-"
+  description = "Security group for ECS Fargate tasks"
+  vpc_id      = aws_vpc.main.id
+
+  # No default ingress - services add their own rules
+  # Egress allows outbound to internet and VPC resources
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${var.name}-ecs-tasks-sg"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}

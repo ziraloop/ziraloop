@@ -61,3 +61,8 @@ output "vpc_endpoint_security_group_id" {
   description = "Security group ID for VPC Endpoints"
   value       = aws_security_group.vpc_endpoints.id
 }
+
+output "ecs_tasks_security_group_id" {
+  description = "Security group ID for ECS tasks"
+  value       = aws_security_group.ecs_tasks.id
+}

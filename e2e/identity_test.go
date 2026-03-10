@@ -480,7 +480,7 @@ func TestE2E_Identity_SharedRateLimit(t *testing.T) {
 
 	// Send 2 requests via credential 0 — should succeed
 	for i := 0; i < 2; i++ {
-		proxyPath := fmt.Sprintf("/v1/proxy/%s/test", credIDs[0])
+		proxyPath := "/v1/proxy/test"
 		rr = h.proxyRequest(t, http.MethodGet, proxyPath, tokens[0], nil)
 		if rr.Code != http.StatusOK {
 			t.Fatalf("request %d via cred 0: expected 200, got %d: %s", i, rr.Code, rr.Body.String())
@@ -488,7 +488,7 @@ func TestE2E_Identity_SharedRateLimit(t *testing.T) {
 	}
 
 	// Send 1 request via credential 1 — should succeed (total = 3, at limit)
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/test", credIDs[1])
+	proxyPath := "/v1/proxy/test"
 	rr = h.proxyRequest(t, http.MethodGet, proxyPath, tokens[1], nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("request 3 via cred 1: expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -501,7 +501,7 @@ func TestE2E_Identity_SharedRateLimit(t *testing.T) {
 	}
 
 	// Also try via credential 0 — should also be blocked (shared counter)
-	proxyPath0 := fmt.Sprintf("/v1/proxy/%s/test", credIDs[0])
+	proxyPath0 := "/v1/proxy/test"
 	rr = h.proxyRequest(t, http.MethodGet, proxyPath0, tokens[0], nil)
 	if rr.Code != http.StatusTooManyRequests {
 		t.Fatalf("request 5 via cred 0: expected 429 (shared limit), got %d: %s", rr.Code, rr.Body.String())
@@ -530,7 +530,7 @@ func TestE2E_Identity_NoIdentity_NoRateLimit(t *testing.T) {
 
 	// Should be able to make many requests without identity rate limit
 	for i := 0; i < 10; i++ {
-		proxyPath := fmt.Sprintf("/v1/proxy/%s/test", cred.ID.String())
+		proxyPath := "/v1/proxy/test"
 		rr := h.proxyRequest(t, http.MethodGet, proxyPath, tok, nil)
 		if rr.Code != http.StatusOK {
 			t.Fatalf("request %d: expected 200 (no identity rate limit), got %d", i, rr.Code)
@@ -701,7 +701,7 @@ func TestE2E_Identity_SharedRateLimit_LiveLLM(t *testing.T) {
 		"max_tokens": 20
 	}`
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", credID)
+	proxyPath := "/v1/proxy/v1/chat/completions"
 
 	// Request 1 — should succeed
 	rr = h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
@@ -775,7 +775,7 @@ func TestE2E_Identity_RequestCaps_LiveLLM(t *testing.T) {
 		"stream": false,
 		"max_tokens": 20
 	}`
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", credID)
+	proxyPath := "/v1/proxy/v1/chat/completions"
 
 	// Request 1 — OK
 	rr = h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
@@ -846,7 +846,7 @@ func TestE2E_Identity_MultipleRateLimits(t *testing.T) {
 	credUUID, _ := uuid.Parse(credID)
 	tok := h.mintToken(t, org, credUUID)
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/test", credID)
+	proxyPath := "/v1/proxy/test"
 
 	// 2 requests OK
 	for i := 0; i < 2; i++ {
@@ -924,7 +924,7 @@ func TestE2E_Identity_RateLimit_OrgIsolation(t *testing.T) {
 	tok2 := h.mintToken(t, org2, cred2.ID)
 
 	// Exhaust org1's identity limit
-	proxyPath1 := fmt.Sprintf("/v1/proxy/%s/test", credID1)
+	proxyPath1 := "/v1/proxy/test"
 	rr = h.proxyRequest(t, http.MethodGet, proxyPath1, tok1, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("org1 request 1: expected 200, got %d", rr.Code)
@@ -935,7 +935,7 @@ func TestE2E_Identity_RateLimit_OrgIsolation(t *testing.T) {
 	}
 
 	// org2 should still work fine — different identity/counter
-	proxyPath2 := fmt.Sprintf("/v1/proxy/%s/test", cred2.ID.String())
+	proxyPath2 := "/v1/proxy/test"
 	for i := 0; i < 5; i++ {
 		rr = h.proxyRequest(t, http.MethodGet, proxyPath2, tok2, nil)
 		if rr.Code != http.StatusOK {
@@ -1005,7 +1005,7 @@ func TestE2E_Identity_TokenCap_WithIdentity(t *testing.T) {
 	json.NewDecoder(rr.Body).Decode(&tokResp)
 	tokStr := tokResp["token"].(string)
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/test", credID)
+	proxyPath := "/v1/proxy/test"
 
 	// 2 requests OK
 	for i := 0; i < 2; i++ {

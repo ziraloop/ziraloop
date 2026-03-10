@@ -164,7 +164,7 @@ func newHarness(t *testing.T) *testHarness {
 	})
 
 	// Connect API (session-authenticated)
-	r.Route("/connect/api", func(r chi.Router) {
+	r.Route("/v1/widget", func(r chi.Router) {
 		r.Use(middleware.ConnectSessionAuth(db))
 		r.Use(middleware.ConnectSecurityHeaders())
 		r.Use(middleware.ConnectCORS())
@@ -179,7 +179,7 @@ func newHarness(t *testing.T) *testHarness {
 
 	// Proxy route (token auth + identity rate limits + request caps)
 	proxyHandler := handler.NewProxyHandler(cm, proxy.NewTransport())
-	r.Route("/v1/proxy/{credentialID}", func(r chi.Router) {
+	r.Route("/v1/proxy", func(r chi.Router) {
 		r.Use(middleware.TokenAuth(signingKey, db))
 		r.Use(middleware.IdentityRateLimit(rc, db))
 		r.Use(middleware.RemainingCheck(ctr))
@@ -384,7 +384,7 @@ func TestE2E_TokenLifecycle(t *testing.T) {
 	}
 
 	// Verify revoked token is rejected by proxy
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	rr = h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(`{}`))
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("proxy with revoked token: expected 401, got %d", rr.Code)
@@ -409,7 +409,7 @@ func TestE2E_Proxy_OpenAI_NonStreaming(t *testing.T) {
 		"max_tokens": 20
 	}`
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	rr := h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
 
 	if rr.Code != http.StatusOK {
@@ -445,7 +445,7 @@ func TestE2E_Proxy_Anthropic_Streaming(t *testing.T) {
 		"max_tokens": 50
 	}`
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	rr := h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
 
 	if rr.Code != http.StatusOK {
@@ -506,7 +506,7 @@ func TestE2E_Proxy_Google_Streaming(t *testing.T) {
 		"max_tokens": 10
 	}`
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	rr := h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
 
 	if rr.Code != http.StatusOK {
@@ -553,7 +553,7 @@ func TestE2E_Proxy_OpenAI_ToolCalls(t *testing.T) {
 		"max_tokens": 100
 	}`
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	rr := h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
 
 	if rr.Code != http.StatusOK {
@@ -630,7 +630,7 @@ func TestE2E_Proxy_Anthropic_StreamingToolCalls(t *testing.T) {
 		"max_tokens": 100
 	}`
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	rr := h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
 
 	if rr.Code != http.StatusOK {
@@ -702,7 +702,7 @@ func TestE2E_Proxy_Meta_NonStreaming(t *testing.T) {
 		"max_tokens": 30
 	}`
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	rr := h.proxyRequest(t, http.MethodPost, proxyPath, tok, strings.NewReader(payload))
 
 	if rr.Code != http.StatusOK {
@@ -730,7 +730,7 @@ func TestE2E_Proxy_MultiTurn(t *testing.T) {
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://openrouter.ai/api", "bearer", apiKey)
 	tok := h.mintToken(t, org, cred.ID)
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 
 	// Turn 1
 	payload1 := `{
@@ -792,7 +792,7 @@ func TestE2E_Proxy_TokenStripped(t *testing.T) {
 	cred := h.storeCredential(t, org, echoServer.URL, "bearer", "sk-the-real-api-key")
 	tok := h.mintToken(t, org, cred.ID)
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/test", cred.ID.String())
+	proxyPath := "/v1/proxy/test"
 	rr := h.proxyRequest(t, http.MethodGet, proxyPath, tok, nil)
 
 	if rr.Code != http.StatusOK {
@@ -836,7 +836,7 @@ func TestE2E_Proxy_TenantIsolation(t *testing.T) {
 	h.db.Create(&tokenRecord)
 	t.Cleanup(func() { h.db.Where("id = ?", tokenRecord.ID).Delete(&model.Token{}) })
 
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/test", cred1.ID.String())
+	proxyPath := "/v1/proxy/test"
 	rr := h.proxyRequest(t, http.MethodGet, proxyPath, "ptok_"+tokenStr, nil)
 
 	// Should fail because org2 doesn't own cred1

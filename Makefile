@@ -1,4 +1,4 @@
-.PHONY: build test test-e2e lint vet check up down dev clean fetch-models generate docker-build docker-run test-clean
+.PHONY: build test test-e2e test-e2e-vault lint vet check up down dev clean fetch-models generate docker-build docker-run test-clean vault-up vault-dev
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
@@ -24,6 +24,10 @@ test:
 test-e2e:
 	go test ./e2e/... -v -count=1 -timeout=5m
 
+# Run Vault-specific e2e tests (requires docker-compose with Vault running)
+test-e2e-vault:
+	go test ./e2e/... -v -count=1 -timeout=5m -run "VaultE2E"
+
 # Run linter
 lint:
 	golangci-lint run ./...
@@ -38,6 +42,44 @@ check: vet lint test build
 # Start local development stack (infra only, no proxy)
 up:
 	docker compose up -d postgres redis zitadel zitadel-init
+
+# Start local development stack with Vault (infra only, no proxy)
+vault-up:
+	docker compose up -d postgres redis vault zitadel zitadel-init
+
+# Start dev stack with Vault, wait for all services
+vault-dev: vault-up
+	@echo ""
+	@echo "Waiting for services..."
+	@until docker compose exec -T postgres pg_isready -U llmvault -q 2>/dev/null; do sleep 1; done
+	@echo "  ✓ Postgres"
+	@until docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
+	@echo "  ✓ Redis"
+	@until docker compose exec -T vault vault status 2>/dev/null | grep -q "Version"; do sleep 1; done
+	@echo "  ✓ Vault"
+	@until curl -sf http://localhost:8085/debug/ready >/dev/null 2>&1; do sleep 2; done
+	@echo "  ✓ ZITADEL"
+	@echo ""
+	@echo "========================================"
+	@echo "  LLMVault dev stack with Vault is ready"
+	@echo "========================================"
+	@echo ""
+	@echo "  ZITADEL Console:  http://localhost:8085/ui/console"
+	@echo "  ZITADEL Login:    http://localhost:8085/ui/login"
+	@echo "  Vault UI:         http://localhost:8200"
+	@echo "  Postgres:         localhost:5433"
+	@echo "  Redis:            localhost:6379"
+	@echo ""
+	@echo "  Vault credentials:"
+	@echo "    Token: llmvault-dev-token"
+	@echo "    Key:   llmvault-key"
+	@echo ""
+	@echo "  Add to your .env for Vault KMS:"
+	@echo "    KMS_TYPE=vault"
+	@echo "    KMS_KEY=llmvault-key"
+	@echo "    VAULT_ADDRESS=http://localhost:8200"
+	@echo "    VAULT_TOKEN=llmvault-dev-token"
+	@echo ""
 
 # Start dev infra, wait for all services to be healthy, print URLs
 dev: up

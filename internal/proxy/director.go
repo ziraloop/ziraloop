@@ -15,7 +15,7 @@ import (
 // It resolves the credential from the cache, validates the upstream BaseURL,
 // rewrites the URL to the upstream, and attaches the real API key.
 //
-// The request path is expected to be /v1/proxy/{credentialID}/... where ...
+// The request path is expected to be /v1/proxy/... where ...
 // is forwarded to the upstream.
 func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
 	return func(req *http.Request) {
@@ -53,8 +53,8 @@ func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
 			req.Header.Del(h)
 		}
 
-		// Rewrite URL: strip /v1/proxy/{credentialID} prefix, append rest to base URL
-		upstreamPath := stripProxyPrefix(req.URL.Path, claims.CredentialID)
+		// Rewrite URL: strip /v1/proxy prefix, append rest to base URL
+		upstreamPath := stripProxyPrefix(req.URL.Path)
 		baseURL := strings.TrimRight(cred.BaseURL, "/")
 		req.URL.Scheme = "https"
 		if strings.HasPrefix(baseURL, "http://") {
@@ -88,11 +88,10 @@ func NewDirector(cacheManager *cache.Manager) func(req *http.Request) {
 	}
 }
 
-// stripProxyPrefix removes the /v1/proxy/{credentialID} prefix from the path.
-// Example: /v1/proxy/abc-123/v1/chat/completions → /v1/chat/completions
-func stripProxyPrefix(path, credentialID string) string {
-	prefix := "/v1/proxy/" + credentialID
-	after := strings.TrimPrefix(path, prefix)
+// stripProxyPrefix removes the /v1/proxy prefix from the path.
+// Example: /v1/proxy/v1/chat/completions → /v1/chat/completions
+func stripProxyPrefix(path string) string {
+	after := strings.TrimPrefix(path, "/v1/proxy")
 	if after == "" {
 		return "/"
 	}

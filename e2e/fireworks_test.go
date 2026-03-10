@@ -25,7 +25,7 @@ func fireworksSetup(t *testing.T, apiKey string) (*testHarness, string, string) 
 	org := h.createOrg(t)
 	cred := h.storeCredential(t, org, "https://api.fireworks.ai/inference", "bearer", apiKey)
 	tok := h.mintToken(t, org, cred.ID)
-	proxyPath := fmt.Sprintf("/v1/proxy/%s/v1/chat/completions", cred.ID.String())
+	proxyPath := "/v1/proxy/v1/chat/completions"
 	return h, tok, proxyPath
 }
 

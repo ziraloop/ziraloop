@@ -7,6 +7,7 @@ import (
 	wrapping "github.com/hashicorp/go-kms-wrapping/v2"
 	"github.com/hashicorp/go-kms-wrapping/wrappers/aead/v2"
 	awskms "github.com/hashicorp/go-kms-wrapping/wrappers/awskms/v2"
+	transit "github.com/hashicorp/go-kms-wrapping/wrappers/transit/v2"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -76,5 +77,52 @@ func NewAWSKMSWrapper(kmsKeyID, region string) (*KeyWrapper, error) {
 	if err != nil {
 		return nil, fmt.Errorf("configuring AWS KMS wrapper: %w", err)
 	}
+	return &KeyWrapper{wrapper: w}, nil
+}
+
+// VaultConfig holds configuration for HashiCorp Vault Transit engine.
+type VaultConfig struct {
+	Address    string // Vault server address (e.g., "http://localhost:8200")
+	Token      string // Vault authentication token
+	Namespace  string // Optional Vault Enterprise namespace
+	MountPath  string // Transit engine mount path (default: "transit")
+	KeyName    string // Name of the encryption key in Vault
+	CACert     string // Path to CA certificate (optional, for TLS)
+	ClientCert string // Path to client certificate (optional, for TLS)
+	ClientKey  string // Path to client key (optional, for TLS)
+}
+
+// NewVaultTransitWrapper creates a KeyWrapper backed by HashiCorp Vault Transit engine.
+// The Transit engine must be enabled and the key must exist in Vault.
+func NewVaultTransitWrapper(cfg VaultConfig) (*KeyWrapper, error) {
+	w := transit.NewWrapper()
+
+	configMap := map[string]string{
+		"address": cfg.Address,
+		"token":   cfg.Token,
+		"key_name": cfg.KeyName,
+	}
+
+	if cfg.Namespace != "" {
+		configMap["namespace"] = cfg.Namespace
+	}
+	if cfg.MountPath != "" {
+		configMap["mount_path"] = cfg.MountPath
+	}
+	if cfg.CACert != "" {
+		configMap["ca_cert"] = cfg.CACert
+	}
+	if cfg.ClientCert != "" {
+		configMap["client_cert"] = cfg.ClientCert
+	}
+	if cfg.ClientKey != "" {
+		configMap["client_key"] = cfg.ClientKey
+	}
+
+	_, err := w.SetConfig(context.Background(), wrapping.WithConfigMap(configMap))
+	if err != nil {
+		return nil, fmt.Errorf("configuring Vault Transit wrapper: %w", err)
+	}
+
 	return &KeyWrapper{wrapper: w}, nil
 }

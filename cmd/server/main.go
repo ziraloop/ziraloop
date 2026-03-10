@@ -82,8 +82,17 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("creating AWS KMS wrapper: %w", err)
 		}
+	case "vault":
+		vaultCfg := cfg.VaultConfig()
+		if vaultCfg == nil {
+			return fmt.Errorf("vault configuration is nil")
+		}
+		kms, err = crypto.NewVaultTransitWrapper(*vaultCfg)
+		if err != nil {
+			return fmt.Errorf("creating Vault Transit wrapper: %w", err)
+		}
 	default:
-		return fmt.Errorf("unsupported KMS_TYPE: %q (supported: aead, awskms)", cfg.KMSType)
+		return fmt.Errorf("unsupported KMS_TYPE: %q (supported: aead, awskms, vault)", cfg.KMSType)
 	}
 	slog.Info("kms wrapper ready", "type", cfg.KMSType)
 
@@ -213,7 +222,7 @@ func run() error {
 	}
 
 	// Connect API (session-authenticated — used by Connect widget iframe)
-	r.Route("/connect/api", func(r chi.Router) {
+	r.Route("/v1/widget", func(r chi.Router) {
 		r.Use(middleware.ConnectSessionAuth(database))
 		r.Use(middleware.ConnectSecurityHeaders())
 		r.Use(middleware.ConnectCORS())
@@ -227,7 +236,7 @@ func run() error {
 	})
 
 	// Sandbox-authenticated routes (proxy) — token auth via JWT
-	r.Route("/v1/proxy/{credentialID}", func(r chi.Router) {
+	r.Route("/v1/proxy", func(r chi.Router) {
 		r.Use(middleware.TokenAuth(signingKey, database))
 		r.Use(middleware.IdentityRateLimit(redisClient, database))
 		r.Use(middleware.RemainingCheck(ctr))

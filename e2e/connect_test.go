@@ -65,7 +65,7 @@ func TestE2E_ConnectSession_Lifecycle(t *testing.T) {
 	}
 
 	// Use session to get session info
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/session", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/session", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("session info: expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -118,7 +118,7 @@ func TestE2E_ConnectSession_ExplicitIdentity(t *testing.T) {
 	body := fmt.Sprintf(`{"identity_id":%q}`, identResp.ID)
 	token, _ := h.createConnectSession(t, org, body)
 
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/session", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/session", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
@@ -146,7 +146,7 @@ func TestE2E_ConnectSession_Expiry(t *testing.T) {
 	h.db.Model(&model.ConnectSession{}).Where("id = ?", sessionID).
 		Update("expires_at", "2020-01-01 00:00:00")
 
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/session", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/session", token, nil)
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for expired session, got %d", rr.Code)
 	}
@@ -185,7 +185,7 @@ func TestE2E_ConnectSession_OriginValidation(t *testing.T) {
 		`{"external_id":"origin_user","allowed_origins":["https://app.example.com"]}`)
 
 	// Request with matching origin — should succeed
-	req := httptest.NewRequest(http.MethodGet, "/connect/api/session", nil)
+	req := httptest.NewRequest(http.MethodGet, "/v1/widget/session", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Origin", "https://app.example.com")
 	rr := httptest.NewRecorder()
@@ -195,7 +195,7 @@ func TestE2E_ConnectSession_OriginValidation(t *testing.T) {
 	}
 
 	// Request with non-matching origin — should be rejected
-	req = httptest.NewRequest(http.MethodGet, "/connect/api/session", nil)
+	req = httptest.NewRequest(http.MethodGet, "/v1/widget/session", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Origin", "https://evil.com")
 	rr = httptest.NewRecorder()
@@ -216,7 +216,7 @@ func TestE2E_Connect_ProviderFiltering(t *testing.T) {
 	token, _ := h.createConnectSession(t, org,
 		`{"external_id":"provider_user","allowed_providers":["openai","anthropic"]}`)
 
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/providers", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/providers", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
@@ -249,7 +249,7 @@ func TestE2E_Connect_ProviderNoFilter(t *testing.T) {
 
 	token, _ := h.createConnectSession(t, org, `{"external_id":"all_providers"}`)
 
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/providers", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/providers", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
@@ -276,7 +276,7 @@ func TestE2E_Connect_ConnectionCRUD(t *testing.T) {
 
 	// Create connection
 	createBody := `{"provider_id":"openrouter","api_key":"sk-test-key-12345","label":"My OpenRouter"}`
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token, strings.NewReader(createBody))
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token, strings.NewReader(createBody))
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create connection: expected 201, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -308,7 +308,7 @@ func TestE2E_Connect_ConnectionCRUD(t *testing.T) {
 	}
 
 	// List connections
-	rr = h.connectRequest(t, http.MethodGet, "/connect/api/connections", token, nil)
+	rr = h.connectRequest(t, http.MethodGet, "/v1/widget/connections", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("list: expected 200, got %d", rr.Code)
 	}
@@ -326,13 +326,13 @@ func TestE2E_Connect_ConnectionCRUD(t *testing.T) {
 	}
 
 	// Delete connection
-	rr = h.connectRequest(t, http.MethodDelete, "/connect/api/connections/"+createResp.ID, token, nil)
+	rr = h.connectRequest(t, http.MethodDelete, "/v1/widget/connections/"+createResp.ID, token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("delete: expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
 
 	// Verify connection is gone
-	rr = h.connectRequest(t, http.MethodGet, "/connect/api/connections", token, nil)
+	rr = h.connectRequest(t, http.MethodGet, "/v1/widget/connections", token, nil)
 	json.NewDecoder(rr.Body).Decode(&connections)
 	if len(connections) != 0 {
 		t.Fatalf("expected 0 connections after delete, got %d", len(connections))
@@ -350,7 +350,7 @@ func TestE2E_Connect_APIKeyNeverReturned(t *testing.T) {
 	token, _ := h.createConnectSession(t, org, `{"external_id":"secret_user"}`)
 
 	// Create connection
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"openrouter","api_key":"sk-super-secret-key"}`))
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create: expected 201, got %d: %s", rr.Code, rr.Body.String())
@@ -363,7 +363,7 @@ func TestE2E_Connect_APIKeyNeverReturned(t *testing.T) {
 	}
 
 	// Check list response doesn't contain the key
-	rr = h.connectRequest(t, http.MethodGet, "/connect/api/connections", token, nil)
+	rr = h.connectRequest(t, http.MethodGet, "/v1/widget/connections", token, nil)
 	body = rr.Body.String()
 	if strings.Contains(body, "sk-super-secret-key") {
 		t.Fatal("API key leaked in list response!")
@@ -393,7 +393,7 @@ func TestE2E_Connect_ProviderAutoResolution(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.providerID, func(t *testing.T) {
 			body := fmt.Sprintf(`{"provider_id":%q,"api_key":"sk-test"}`, tt.providerID)
-			rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+			rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 				strings.NewReader(body))
 			if rr.Code != http.StatusCreated {
 				t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
@@ -426,7 +426,7 @@ func TestE2E_Connect_OrgIsolation(t *testing.T) {
 
 	// Create connection via org1's session
 	token1, _ := h.createConnectSession(t, org1, `{"external_id":"iso_user1"}`)
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token1,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token1,
 		strings.NewReader(`{"provider_id":"openrouter","api_key":"sk-org1-key"}`))
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create: expected 201, got %d", rr.Code)
@@ -434,7 +434,7 @@ func TestE2E_Connect_OrgIsolation(t *testing.T) {
 
 	// org2's session should not see org1's connections
 	token2, _ := h.createConnectSession(t, org2, `{"external_id":"iso_user2"}`)
-	rr = h.connectRequest(t, http.MethodGet, "/connect/api/connections", token2, nil)
+	rr = h.connectRequest(t, http.MethodGet, "/v1/widget/connections", token2, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("list: expected 200, got %d", rr.Code)
 	}
@@ -455,7 +455,7 @@ func TestE2E_Connect_OrgIsolation(t *testing.T) {
 func TestE2E_Connect_InvalidToken(t *testing.T) {
 	h := newHarness(t)
 
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/session", "csess_invalid_token", nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/session", "csess_invalid_token", nil)
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rr.Code)
 	}
@@ -468,7 +468,7 @@ func TestE2E_Connect_InvalidToken(t *testing.T) {
 func TestE2E_Connect_WrongTokenFormat(t *testing.T) {
 	h := newHarness(t)
 
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/session", "ptok_some_jwt_token", nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/session", "ptok_some_jwt_token", nil)
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rr.Code)
 	}
@@ -487,13 +487,13 @@ func TestE2E_Connect_PermissionEnforcement(t *testing.T) {
 		`{"external_id":"perm_user","permissions":["list"]}`)
 
 	// List should work
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/connections", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/connections", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("list with permission: expected 200, got %d", rr.Code)
 	}
 
 	// Create should be forbidden
-	rr = h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr = h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"openai","api_key":"sk-test"}`))
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("create without permission: expected 403, got %d", rr.Code)
@@ -512,7 +512,7 @@ func TestE2E_Connect_NoPermissionsMeansAll(t *testing.T) {
 	token, _ := h.createConnectSession(t, org, `{"external_id":"all_perm_user"}`)
 
 	// Create should work
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"openrouter","api_key":"sk-test"}`))
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
@@ -532,7 +532,7 @@ func TestE2E_Connect_DisallowedProvider(t *testing.T) {
 		`{"external_id":"restricted_user","allowed_providers":["openai"]}`)
 
 	// Try to create anthropic connection
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"anthropic","api_key":"sk-test"}`))
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("expected 403 for disallowed provider, got %d: %s", rr.Code, rr.Body.String())
@@ -551,13 +551,13 @@ func TestE2E_Connect_NoIdentity(t *testing.T) {
 	token, _ := h.createConnectSession(t, org, `{}`)
 
 	// Listing should return empty
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/connections", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/connections", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
 	// Creating should fail
-	rr = h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr = h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"openai","api_key":"sk-test"}`))
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for no identity, got %d", rr.Code)
@@ -674,7 +674,7 @@ func TestE2E_Connect_VerifyConnection_Live(t *testing.T) {
 
 	// Create connection with real key
 	body := fmt.Sprintf(`{"provider_id":"openrouter","api_key":%q,"label":"Real OR Key"}`, apiKey)
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(body))
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create: expected 201, got %d: %s", rr.Code, rr.Body.String())
@@ -687,7 +687,7 @@ func TestE2E_Connect_VerifyConnection_Live(t *testing.T) {
 
 	// Verify connection
 	rr = h.connectRequest(t, http.MethodPost,
-		"/connect/api/connections/"+createResp.ID+"/verify", token, nil)
+		"/v1/widget/connections/"+createResp.ID+"/verify", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("verify: expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -716,7 +716,7 @@ func TestE2E_Connect_VerifyConnection_InvalidKey(t *testing.T) {
 		`{"external_id":"bad_key_user","permissions":["create","list","verify"]}`)
 
 	// Create connection with fake key
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"openai","api_key":"sk-invalid-key-12345"}`))
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("create: expected 201, got %d", rr.Code)
@@ -729,7 +729,7 @@ func TestE2E_Connect_VerifyConnection_InvalidKey(t *testing.T) {
 
 	// Verify connection — should return valid=false
 	rr = h.connectRequest(t, http.MethodPost,
-		"/connect/api/connections/"+createResp.ID+"/verify", token, nil)
+		"/v1/widget/connections/"+createResp.ID+"/verify", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("verify: expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
@@ -756,7 +756,7 @@ func TestE2E_Connect_UnknownProvider(t *testing.T) {
 
 	token, _ := h.createConnectSession(t, org, `{"external_id":"unknown_provider_user"}`)
 
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"totally-fake-provider","api_key":"sk-test"}`))
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for unknown provider, got %d", rr.Code)
@@ -774,7 +774,7 @@ func TestE2E_Connect_DefaultLabel(t *testing.T) {
 	token, _ := h.createConnectSession(t, org, `{"external_id":"label_user"}`)
 
 	// Create without label — should default to provider name
-	rr := h.connectRequest(t, http.MethodPost, "/connect/api/connections", token,
+	rr := h.connectRequest(t, http.MethodPost, "/v1/widget/connections", token,
 		strings.NewReader(`{"provider_id":"openrouter","api_key":"sk-test"}`))
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d", rr.Code)
@@ -802,7 +802,7 @@ func TestE2E_Connect_DeleteNotFound(t *testing.T) {
 	token, _ := h.createConnectSession(t, org, `{"external_id":"del_user"}`)
 
 	rr := h.connectRequest(t, http.MethodDelete,
-		"/connect/api/connections/00000000-0000-0000-0000-000000000000", token, nil)
+		"/v1/widget/connections/00000000-0000-0000-0000-000000000000", token, nil)
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rr.Code)
 	}
@@ -827,7 +827,7 @@ func TestE2E_Connect_SessionActivation(t *testing.T) {
 
 	// Use the session
 	token := sess.SessionToken
-	rr := h.connectRequest(t, http.MethodGet, "/connect/api/session", token, nil)
+	rr := h.connectRequest(t, http.MethodGet, "/v1/widget/session", token, nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}

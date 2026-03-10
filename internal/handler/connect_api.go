@@ -84,7 +84,7 @@ type sessionInfoResponse struct {
 	ExpiresAt        string   `json:"expires_at"`
 }
 
-// SessionInfo handles GET /connect/api/session.
+// SessionInfo handles GET /v1/widget/session.
 func (h *ConnectAPIHandler) SessionInfo(w http.ResponseWriter, r *http.Request) {
 	sess, ok := middleware.ConnectSessionFromContext(r.Context())
 	if !ok {
@@ -111,7 +111,7 @@ func (h *ConnectAPIHandler) SessionInfo(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// ListProviders handles GET /connect/api/providers.
+// ListProviders handles GET /v1/widget/providers.
 func (h *ConnectAPIHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	sess, ok := middleware.ConnectSessionFromContext(r.Context())
 	if !ok {
@@ -144,7 +144,7 @@ func (h *ConnectAPIHandler) ListProviders(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, result)
 }
 
-// ListConnections handles GET /connect/api/connections.
+// ListConnections handles GET /v1/widget/connections.
 func (h *ConnectAPIHandler) ListConnections(w http.ResponseWriter, r *http.Request) {
 	sess, ok := middleware.ConnectSessionFromContext(r.Context())
 	if !ok {
@@ -185,7 +185,7 @@ func (h *ConnectAPIHandler) ListConnections(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// CreateConnection handles POST /connect/api/connections.
+// CreateConnection handles POST /v1/widget/connections.
 func (h *ConnectAPIHandler) CreateConnection(w http.ResponseWriter, r *http.Request) {
 	sess, ok := middleware.ConnectSessionFromContext(r.Context())
 	if !ok {
@@ -319,7 +319,7 @@ func (h *ConnectAPIHandler) CreateConnection(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// DeleteConnection handles DELETE /connect/api/connections/{id}.
+// DeleteConnection handles DELETE /v1/widget/connections/{id}.
 func (h *ConnectAPIHandler) DeleteConnection(w http.ResponseWriter, r *http.Request) {
 	sess, ok := middleware.ConnectSessionFromContext(r.Context())
 	if !ok {
@@ -358,7 +358,7 @@ func (h *ConnectAPIHandler) DeleteConnection(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// VerifyConnection handles POST /connect/api/connections/{id}/verify.
+// VerifyConnection handles POST /v1/widget/connections/{id}/verify.
 func (h *ConnectAPIHandler) VerifyConnection(w http.ResponseWriter, r *http.Request) {
 	sess, ok := middleware.ConnectSessionFromContext(r.Context())
 	if !ok {

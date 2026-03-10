@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
+
+	"github.com/useportal/llmvault/internal/crypto"
 )
 
 type Config struct {
@@ -22,9 +24,18 @@ type Config struct {
 	DatabaseURL string `env:"DATABASE_URL,required"`
 
 	// KMS (key wrapping for credential encryption)
-	KMSType   string `env:"KMS_TYPE,required"` // "aead" or "awskms"
-	KMSKey    string `env:"KMS_KEY"`           // base64-encoded 32-byte key (aead) or AWS KMS key ID/ARN (awskms)
+	KMSType   string `env:"KMS_TYPE,required"` // "aead", "awskms", or "vault"
+	KMSKey    string `env:"KMS_KEY"`           // base64-encoded 32-byte key (aead) or AWS KMS key ID/ARN (awskms) or Vault key name (vault)
 	AWSRegion string `env:"AWS_REGION"`        // AWS region for awskms (default: us-east-1)
+
+	// HashiCorp Vault (for KMS_TYPE=vault)
+	VaultAddress   string `env:"VAULT_ADDRESS"`   // Vault server URL (e.g., http://localhost:8200)
+	VaultToken     string `env:"VAULT_TOKEN"`     // Vault authentication token
+	VaultNamespace string `env:"VAULT_NAMESPACE"` // Optional Vault Enterprise namespace
+	VaultMountPath string `env:"VAULT_MOUNT_PATH"` // Transit engine mount path (default: transit)
+	VaultCACert    string `env:"VAULT_CA_CERT"`   // Path to CA certificate (optional, for TLS)
+	VaultClientCert string `env:"VAULT_CLIENT_CERT"` // Path to client certificate (optional, for TLS)
+	VaultClientKey string `env:"VAULT_CLIENT_KEY"`   // Path to client key (optional, for TLS)
 
 	// Redis
 	RedisAddr     string        `env:"REDIS_ADDR,required"`
@@ -56,9 +67,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 
-	// Enforce AWS KMS in production — AEAD is not allowed.
-	if cfg.Environment == "production" && cfg.KMSType != "awskms" {
-		return nil, fmt.Errorf("KMS_TYPE must be 'awskms' in production (got %q)", cfg.KMSType)
+	// Enforce AWS KMS or Vault in production — AEAD is not allowed.
+	if cfg.Environment == "production" && cfg.KMSType != "awskms" && cfg.KMSType != "vault" {
+		return nil, fmt.Errorf("KMS_TYPE must be 'awskms' or 'vault' in production (got %q)", cfg.KMSType)
 	}
 
 	// Fall back to reading admin PAT from file (written by ZITADEL itself).
@@ -76,5 +87,23 @@ func (c *Config) loadZitadelPATFile() {
 	}
 	if pat := strings.TrimSpace(string(data)); pat != "" {
 		c.ZitadelAdminPAT = pat
+	}
+}
+
+// VaultConfig returns a crypto.VaultConfig populated from the Config.
+// Returns nil if KMS_TYPE is not "vault".
+func (c *Config) VaultConfig() *crypto.VaultConfig {
+	if c.KMSType != "vault" {
+		return nil
+	}
+	return &crypto.VaultConfig{
+		Address:         c.VaultAddress,
+		Token:           c.VaultToken,
+		Namespace:       c.VaultNamespace,
+		MountPath:       c.VaultMountPath,
+		KeyName:         c.KMSKey,
+		CACert:          c.VaultCACert,
+		ClientCert:      c.VaultClientCert,
+		ClientKey:       c.VaultClientKey,
 	}
 }
