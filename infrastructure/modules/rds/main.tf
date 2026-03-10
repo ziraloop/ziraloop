@@ -88,6 +88,10 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
     # Full connection string for convenience
     database_url = "postgres://${var.db_username}:${random_password.db_password.result}@${aws_db_instance.main.address}:5432/${local.db_name}"
   })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
 }
 
 # -----------------------------------------------------------------------------
@@ -190,4 +194,8 @@ resource "aws_db_instance" "main" {
   tags = merge(local.common_tags, {
     Name = var.name
   })
+
+  lifecycle {
+    ignore_changes = [password]
+  }
 }

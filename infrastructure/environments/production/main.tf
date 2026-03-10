@@ -194,7 +194,7 @@ module "networking" {
   # 2. Add Cloudflare DNS validation records
   # 3. Wait for certificate status = ISSUED
   # 4. Then set to true and re-apply (HTTPS + rules)
-  enable_https_listener = true
+  enable_https_listener = false
   
   # Subnets
   public_subnet_ids  = module.vpc.public_subnet_ids

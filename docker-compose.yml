@@ -28,6 +28,27 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- Mailpit (Email testing) ---
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP
+    environment:
+      MP_DATA_FILE: /data/mailpit.db
+      MP_UI_BIND_ADDR: 0.0.0.0:8025
+      MP_SMTP_BIND_ADDR: 0.0.0.0:1025
+      # Accept any SMTP auth (or no auth) - required for Zitadel compatibility
+      MP_SMTP_AUTH_ACCEPT_ANY: true
+      MP_SMTP_AUTH_ALLOW_INSECURE: true
+    volumes:
+      - mailpitdata:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025/livez"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   # --- HashiCorp Vault (KMS for envelope encryption) ---
   vault:
     image: hashicorp/vault:1.18
@@ -89,10 +110,30 @@ services:
       ZITADEL_FIRSTINSTANCE_ORG_MACHINE_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
       ZITADEL_FIRSTINSTANCE_PATPATH: /zitadel/bootstrap/admin.pat
 
-      # Disable Login V2 requirement (no login UI needed for machine auth)
-      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: false
-    ports:
-      - "${ZITADEL_EXTERNALPORT:-8085}:8080"
+      # Default SMTP configuration (Mailpit)
+      # Note: Mailpit accepts any credentials with MP_SMTP_AUTH_ACCEPT_ANY
+      ZITADEL_DEFAULTINSTANCE_SMTPCONFIGURATION_SMTP_HOST: mailpit:1025
+      ZITADEL_DEFAULTINSTANCE_SMTPCONFIGURATION_SMTP_USER: mailpit
+      ZITADEL_DEFAULTINSTANCE_SMTPCONFIGURATION_SMTP_PASSWORD: mailpit
+      ZITADEL_DEFAULTINSTANCE_SMTPCONFIGURATION_TLS: false
+
+      # Login V2 configuration
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/bootstrap/login-client.pat
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: LLMVault Login Client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+      
+      # Enable Login V2 by default
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: true
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: http://${ZITADEL_EXTERNALDOMAIN:-localhost}:${ZITADEL_EXTERNALPORT:-8085}/ui/v2/login/
+      
+      # OIDC/SAML redirect URLs for Login V2
+      ZITADEL_OIDC_DEFAULTLOGINURLV2: http://${ZITADEL_EXTERNALDOMAIN:-localhost}:${ZITADEL_EXTERNALPORT:-8085}/ui/v2/login/login?authRequest=
+      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: http://${ZITADEL_EXTERNALDOMAIN:-localhost}:${ZITADEL_EXTERNALPORT:-8085}/ui/v2/login/logout?post_logout_redirect=
+      ZITADEL_SAML_DEFAULTLOGINURLV2: http://${ZITADEL_EXTERNALDOMAIN:-localhost}:${ZITADEL_EXTERNALPORT:-8085}/ui/v2/login/login?samlRequest=
+    # Port 8080 exposed internally only; nginx proxy routes external traffic
+    expose:
+      - "8080"
     volumes:
       - ./docker/zitadel/bootstrap:/zitadel/bootstrap:rw
     healthcheck:
@@ -124,6 +165,43 @@ services:
     command: ["/scripts/init.sh"]
     restart: "no"
 
+  # Login V2 UI service
+  zitadel-login:
+    image: ghcr.io/zitadel/zitadel-login:v4.12.1
+    environment:
+      ZITADEL_API_URL: http://zitadel:8080
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      ZITADEL_SERVICE_USER_TOKEN_FILE: /zitadel/bootstrap/login-client.pat
+      CUSTOM_REQUEST_HEADERS: Host:${ZITADEL_EXTERNALDOMAIN:-localhost}
+    volumes:
+      - ./docker/zitadel/bootstrap:/zitadel/bootstrap:ro
+    depends_on:
+      zitadel-init:
+        condition: service_completed_successfully
+    # Port 3000 exposed internally only; nginx proxy routes external traffic
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ui/v2/login/healthy || wget -qO- http://[::1]:3000/ui/v2/login/healthy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Nginx reverse proxy to route /ui/v2/login to zitadel-login and rest to zitadel
+  zitadel-proxy:
+    image: nginx:alpine
+    ports:
+      - "${ZITADEL_EXTERNALPORT:-8085}:8080"
+    volumes:
+      - ./docker/nginx/zitadel.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      zitadel:
+        condition: service_healthy
+      zitadel-login:
+        condition: service_healthy
+
 volumes:
   pgdata:
   vaultdata:
+  mailpitdata:

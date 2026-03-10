@@ -41,11 +41,11 @@ check: vet lint test build
 
 # Start local development stack (infra only, no proxy)
 up:
-	docker compose up -d postgres redis zitadel zitadel-init
+	docker compose up -d postgres redis mailpit zitadel zitadel-init zitadel-login zitadel-proxy
 
 # Start local development stack with Vault (infra only, no proxy)
 vault-up:
-	docker compose up -d postgres redis vault zitadel zitadel-init
+	docker compose up -d postgres redis vault mailpit zitadel zitadel-init zitadel-login zitadel-proxy
 
 # Start dev stack with Vault, wait for all services
 vault-dev: vault-up
@@ -57,18 +57,32 @@ vault-dev: vault-up
 	@echo "  ✓ Redis"
 	@until docker compose exec -T vault vault status 2>/dev/null | grep -q "Version"; do sleep 1; done
 	@echo "  ✓ Vault"
+	@until curl -sf http://localhost:8025/livez >/dev/null 2>&1; do sleep 2; done
+	@echo "  ✓ Mailpit"
 	@until curl -sf http://localhost:8085/debug/ready >/dev/null 2>&1; do sleep 2; done
-	@echo "  ✓ ZITADEL"
+	@echo "  ✓ ZITADEL API"
+	@until curl -sf http://localhost:8085/ui/v2/login/healthy >/dev/null 2>&1; do sleep 2; done
+	@echo "  ✓ ZITADEL Login V2"
 	@echo ""
 	@echo "========================================"
 	@echo "  LLMVault dev stack with Vault is ready"
 	@echo "========================================"
 	@echo ""
 	@echo "  ZITADEL Console:  http://localhost:8085/ui/console"
-	@echo "  ZITADEL Login:    http://localhost:8085/ui/login"
+	@echo "  ZITADEL Login V1: http://localhost:8085/ui/login"
+	@echo "  ZITADEL Login V2: http://localhost:8085/ui/v2/login"
+	@echo "  Mailpit UI:       http://localhost:8025"
 	@echo "  Vault UI:         http://localhost:8200"
 	@echo "  Postgres:         localhost:5433"
 	@echo "  Redis:            localhost:6379"
+	@echo ""
+	@echo "  ZITADEL SMTP Settings (pre-configured for Mailpit):"
+	@echo "    Host:     mailpit"
+	@echo "    Port:     1025"
+	@echo "    TLS:      disabled"
+	@echo "    User:     mailpit"
+	@echo "    Password: mailpit"
+	@echo "    From:     noreply@localhost"
 	@echo ""
 	@echo "  Vault credentials:"
 	@echo "    Token: llmvault-dev-token"
@@ -89,17 +103,31 @@ dev: up
 	@echo "  ✓ Postgres"
 	@until docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
 	@echo "  ✓ Redis"
+	@until curl -sf http://localhost:8025/livez >/dev/null 2>&1; do sleep 2; done
+	@echo "  ✓ Mailpit"
 	@until curl -sf http://localhost:8085/debug/ready >/dev/null 2>&1; do sleep 2; done
-	@echo "  ✓ ZITADEL"
+	@echo "  ✓ ZITADEL API"
+	@until curl -sf http://localhost:8085/ui/v2/login/healthy >/dev/null 2>&1; do sleep 2; done
+	@echo "  ✓ ZITADEL Login V2"
 	@echo ""
 	@echo "========================================"
 	@echo "  LLMVault dev stack is ready"
 	@echo "========================================"
 	@echo ""
 	@echo "  ZITADEL Console:  http://localhost:8085/ui/console"
-	@echo "  ZITADEL Login:    http://localhost:8085/ui/login"
+	@echo "  ZITADEL Login V1: http://localhost:8085/ui/login"
+	@echo "  ZITADEL Login V2: http://localhost:8085/ui/v2/login"
+	@echo "  Mailpit UI:       http://localhost:8025"
 	@echo "  Postgres:         localhost:5433  (user: llmvault, databases: llmvault + llmvault_test)"
 	@echo "  Redis:            localhost:6379"
+	@echo ""
+	@echo "  ZITADEL SMTP Settings (pre-configured for Mailpit):"
+	@echo "    Host:     mailpit"
+	@echo "    Port:     1025"
+	@echo "    TLS:      disabled"
+	@echo "    User:     (none - auth not required)"
+	@echo "    Password: (none - auth not required)"
+	@echo "    From:     noreply@localhost"
 	@echo ""
 	@echo "  Default ZITADEL admin login:"
 	@echo "    Email:    zitadel-admin@zitadel.localhost"
