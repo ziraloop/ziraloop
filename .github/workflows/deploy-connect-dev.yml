@@ -40,14 +40,6 @@ jobs:
         working-directory: apps/connect
         run: npm run deploy:dev
 
-      - name: comment deployment url
-        if: github.event_name == 'push'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha,
-              body: '🚀 deployed to development: https://connect.dev.llmvault.dev'
-            })
+      - name: deployment summary
+        run: |
+          echo "🚀 deployed to development: https://connect.dev.llmvault.dev"
