@@ -73,6 +73,14 @@ jobs:
         run: make test-clean
         timeout-minutes: 10
 
+      - name: show logs on failure
+        if: failure()
+        run: |
+          echo "=== ZITADEL logs ==="
+          docker compose logs zitadel --tail 50 || true
+          echo "=== Postgres logs ==="
+          docker compose logs postgres --tail 20 || true
+
       - name: cleanup docker
         if: always()
         run: docker compose down -v --remove-orphans 2>/dev/null || true
