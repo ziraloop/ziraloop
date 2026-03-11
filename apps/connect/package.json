@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:prod": "tsc -b && vite build --mode production",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:dev": "bash scripts/deploy.sh dev",
+    "deploy:prod": "bash scripts/deploy.sh prod"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",

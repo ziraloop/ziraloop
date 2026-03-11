@@ -1,0 +1,93 @@
+name: publish api image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "e2e/**"
+      - "go.mod"
+      - "go.sum"
+      - "docker/Dockerfile"
+      - ".github/workflows/api-image.yml"
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup up qemu (for ARM64 cross-compilation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: set up docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: determine tags
+        id: tags
+        run: |
+          IMAGE=ghcr.io/llmvault/llmvault
+          COMMIT=${GITHUB_SHA::7}
+
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION=${{ github.event.release.tag_name }}
+            echo "tags=${IMAGE}:${VERSION},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${IMAGE}:dev,${IMAGE}:sha-${COMMIT}" >> "$GITHUB_OUTPUT"
+            echo "version=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            VERSION=${{ steps.tags.outputs.version }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-2
+
+      - name: deploy to ecs
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            CLUSTER=llmvault-prod
+            SERVICE=llmvault-prod-api
+          else
+            CLUSTER=llmvault-dev
+            SERVICE=llmvault-dev-api
+          fi
+          aws ecs update-service \
+            --cluster $CLUSTER \
+            --service $SERVICE \
+            --force-new-deployment \
+            --no-cli-pager

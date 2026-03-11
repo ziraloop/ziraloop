@@ -1,0 +1,91 @@
+infrastructure/cdk/
+  ├── package.json
+  ├── tsconfig.json
+  ├── cdk.json
+  ├── bin/
+  │   └── app.ts                    # Entry point — instantiates prod + dev stacks
+  ├── lib/
+  │   ├── stacks/
+  │   │   ├── network-stack.ts      # VPC, subnets, NAT, security groups
+  │   │   ├── data-stack.ts         # RDS Postgres + ElastiCache Redis
+  │   │   ├── cluster-stack.ts      # ECS Cluster + ALB + ACM cert
+  │   │   ├── zitadel-stack.ts      # ZITADEL + Login v2 Fargate services
+  │   │   └── api-stack.ts          # LLMVault API Fargate service
+  │   └── config/
+  │       ├── environments.ts       # Prod/dev config (instance sizes, domain, desired counts)
+  │       └── constants.ts          # Shared constants (project name, tags)
+
+  Step-by-step Implementation Plan
+
+  Step 1: CDK Bootstrap + Project Setup
+  - cdk init with TypeScript
+  - Define environment config type (domain, instance sizes, AZs, desired counts)
+  - Create prod and dev configs
+
+  Step 2: Network Stack
+  - VPC with 2 AZs, public + private subnets
+  - NAT Gateway (1 for cost, can scale later)
+  - Security groups: ALB, ECS tasks, RDS, ElastiCache
+
+  Step 3: Data Stack
+  - RDS PostgreSQL 17 (db.t4g.micro prod, db.t4g.micro dev)
+  - ElastiCache Redis 7 (cache.t4g.micro)
+  - Secrets Manager for DB credentials
+  - Both in private subnets, accessible only from ECS SG
+
+  Step 4: Cluster Stack
+  - ECS Fargate cluster with Container Insights
+  - ALB in public subnets
+  - ACM certificate for *.llmvault.dev (DNS validation via Cloudflare — manual step)
+  - HTTPS listener + HTTP redirect
+  - Target groups for each service: auth.llmvault.dev, api.llmvault.dev
+
+  Step 5: ZITADEL Stack
+  - ZITADEL Fargate service (ARM64, 0.25 vCPU, 1GB)
+    - start-from-init command (first deploy) → start after
+    - Masterkey + DB creds from Secrets Manager
+    - ALB routing: auth.llmvault.dev
+  - ZITADEL Login v2 Fargate service
+    - Routed via ALB path rule: auth.llmvault.dev/ui/v2/login/*
+
+  Step 6: API Stack
+  - LLMVault API Fargate service (ARM64, 0.25 vCPU, 512MB)
+  - ECR repository for llmvault/api
+  - Env: DATABASE_URL, REDIS_ADDR, KMS_TYPE=awskms, ZITADEL connection
+  - Secrets: KMS key, JWT signing key from Secrets Manager
+  - ALB routing: api.llmvault.dev
+
+  Environment Differences
+
+  ┌─────────────────────┬─────────────────────────────┬─────────────────────────────┐
+  │       Aspect        │         Production          │         Development         │
+  ├─────────────────────┼─────────────────────────────┼─────────────────────────────┤
+  │ Domain              │ llmvault.dev                │ dev.llmvault.dev            │
+  ├─────────────────────┼─────────────────────────────┼─────────────────────────────┤
+  │ RDS                 │ db.t4g.micro, 7-day backups │ db.t4g.micro, 1-day backups │
+  ├─────────────────────┼─────────────────────────────┼─────────────────────────────┤
+  │ Desired count       │ 1 (can scale)               │ 1                           │
+  ├─────────────────────┼─────────────────────────────┼─────────────────────────────┤
+  │ Deletion protection │ Enabled                     │ Disabled                    │
+  ├─────────────────────┼─────────────────────────────┼─────────────────────────────┤
+  │ NAT Gateway         │ 1                           │ 1                           │
+  ├─────────────────────┼─────────────────────────────┼─────────────────────────────┤
+  │ KMS                 │ AWS KMS                     │ AWS KMS                     │
+  └─────────────────────┴─────────────────────────────┴─────────────────────────────┘
+
+  Cloudflare DNS (Manual Steps)
+
+  Since domain is on Cloudflare, after each environment deploy:
+  1. Add ACM validation CNAME records
+  2. Add application CNAME records pointing to ALB DNS name
+  3. Set Cloudflare SSL mode to "Full" (ALB terminates TLS)
+
+  Migration from Terraform
+
+  The existing Terraform has partially deployed resources (errored state). We'll:
+  1. Build CDK stacks fresh alongside
+  2. Once validated, tear down Terraform resources
+  3. CDK becomes the single source of truth
+
+  ---
+  Want me to start with Step 1: CDK project setup + environment config?
