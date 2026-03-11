@@ -1,0 +1,73 @@
+name: test api
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: setup docker compose
+        run: |
+          docker compose version
+
+      - name: create .env file
+        run: |
+          cat > .env << 'EOF'
+          ENVIRONMENT=development
+          PORT=8080
+          LOG_LEVEL=info
+          LOG_FORMAT=json
+          POSTGRES_USER=llmvault
+          POSTGRES_PASSWORD=localdev
+          POSTGRES_DB=llmvault
+          POSTGRES_PORT=5433
+          DB_HOST=localhost
+          DB_PORT=5433
+          DB_USER=llmvault
+          DB_PASSWORD=localdev
+          DB_NAME=llmvault
+          DB_SSLMODE=disable
+          KMS_TYPE=aead
+          KMS_KEY=OEx8eTY9N8RbDN6nM9Xwq3qP0c0w4uQ3Yl5o2l5P5Y8=
+          REDIS_ADDR=localhost:6379
+          REDIS_DB=0
+          REDIS_CACHE_TTL=30m
+          MEM_CACHE_TTL=5m
+          MEM_CACHE_MAX_SIZE=10000
+          JWT_SIGNING_KEY=local-dev-signing-key-for-tests-only
+          CORS_ORIGINS=http://localhost:3000
+          ZITADEL_MASTERKEY=01234567890123456789012345678901
+          ZITADEL_DB_PASSWORD=zitadeldev
+          ZITADEL_DOMAIN=http://localhost:8085
+          ZITADEL_EXTERNALDOMAIN=localhost
+          ZITADEL_EXTERNAL_URL=http://localhost:8085
+          ZITADEL_INTERNAL_URL=http://zitadel:8080
+          ZITADEL_DEV_MODE=true
+          DASHBOARD_REDIRECT_URI=http://localhost:3000/api/auth/callback/zitadel
+          DASHBOARD_LOGOUT_URI=http://localhost:3000
+          VAULT_TOKEN=llmvault-dev-token
+          VAULT_ADDRESS=http://localhost:8200
+          EOF
+
+      - name: run test-clean
+        run: make test-clean
+        timeout-minutes: 10
+
+      - name: cleanup docker
+        if: always()
+        run: docker compose down -v --remove-orphans 2>/dev/null || true

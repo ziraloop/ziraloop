@@ -10,3 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Test database (isolated from dev data)
 SELECT 'CREATE DATABASE llmvault_test OWNER ' || current_user
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'llmvault_test')\gexec
+
+-- Vault-specific test database (for Vault KMS e2e tests)
+SELECT 'CREATE DATABASE llmvault_vault_test OWNER ' || current_user
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'llmvault_vault_test')\gexec

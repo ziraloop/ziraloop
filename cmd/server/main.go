@@ -60,7 +60,7 @@ func run() error {
 	slog.Info("starting llmvault", "version", version, "commit", commit)
 
 	// 3. Database
-	database, err := db.New(cfg.DatabaseURL)
+	database, err := db.New(cfg.DatabaseDSN())
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
 	}

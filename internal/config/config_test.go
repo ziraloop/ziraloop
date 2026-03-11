@@ -10,7 +10,10 @@ func setRequiredEnv(t *testing.T) {
 	t.Setenv("PORT", "8080")
 	t.Setenv("LOG_LEVEL", "info")
 	t.Setenv("LOG_FORMAT", "json")
-	t.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db")
+	t.Setenv("DB_HOST", "localhost")
+	t.Setenv("DB_USER", "user")
+	t.Setenv("DB_PASSWORD", "pass")
+	t.Setenv("DB_NAME", "db")
 	t.Setenv("KMS_TYPE", "aead")
 	t.Setenv("KMS_KEY", "dGVzdC1rZXktMzItYnl0ZXMtbG9uZy1lbm91Z2gh")
 	t.Setenv("REDIS_ADDR", "localhost:6379")
@@ -109,8 +112,11 @@ func TestLoad_RequiredFieldsPopulated(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cfg.DatabaseURL == "" {
-		t.Error("DATABASE_URL should not be empty")
+	if cfg.DBHost == "" {
+		t.Error("DB_HOST should not be empty")
+	}
+	if cfg.DatabaseDSN() == "" {
+		t.Error("DatabaseDSN() should not be empty")
 	}
 	if cfg.KMSType == "" {
 		t.Error("KMS_TYPE should not be empty")

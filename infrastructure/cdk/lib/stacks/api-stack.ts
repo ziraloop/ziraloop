@@ -81,27 +81,6 @@ export class ApiStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // -------------------------------------------------------------------
-    // DATABASE_URL secret — constructed from RDS secret via dynamic refs
-    // -------------------------------------------------------------------
-    const dbUrlSecret = new secretsmanager.CfnSecret(this, "DatabaseUrl", {
-      name: `${prefix}/database-url`,
-      secretString: cdk.Fn.sub(
-        "postgres://${username}:${password}@${host}:5432/llmvault?sslmode=require",
-        {
-          username: `{{resolve:secretsmanager:${props.dbSecret.secretName}:SecretString:username}}`,
-          password: `{{resolve:secretsmanager:${props.dbSecret.secretName}:SecretString:password}}`,
-          host: props.dbEndpoint,
-        }
-      ),
-    });
-    const dbUrlSecretRef = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      "DatabaseUrlRef",
-      `${prefix}/database-url`
-    );
-    dbUrlSecretRef.node.addDependency(dbUrlSecret);
-
     taskDef.addContainer("api", {
       containerName: "api",
       image: ecs.ContainerImage.fromRegistry("ghcr.io/llmvault/llmvault:dev"),
@@ -112,6 +91,12 @@ export class ApiStack extends cdk.Stack {
         ENVIRONMENT: config.name,
         LOG_LEVEL: "info",
         LOG_FORMAT: "json",
+
+        // Database
+        DB_HOST: props.dbEndpoint,
+        DB_PORT: "5432",
+        DB_NAME: "llmvault",
+        DB_SSLMODE: "require",
 
         // Redis
         REDIS_ADDR: `${props.redisEndpoint}:${props.redisPort}`,
@@ -134,7 +119,8 @@ export class ApiStack extends cdk.Stack {
         CORS_ORIGINS: `https://${subdomain(config, "connect")},https://${envDomain(config)}`,
       },
       secrets: {
-        DATABASE_URL: ecs.Secret.fromSecretsManager(dbUrlSecretRef),
+        DB_USER: ecs.Secret.fromSecretsManager(props.dbSecret, "username"),
+        DB_PASSWORD: ecs.Secret.fromSecretsManager(props.dbSecret, "password"),
         JWT_SIGNING_KEY: ecs.Secret.fromSecretsManager(jwtSigningKey),
         ZITADEL_ADMIN_PAT: ecs.Secret.fromSecretsManager(
           props.zitadelAdminPatSecret

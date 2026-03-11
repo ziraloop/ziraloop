@@ -9,7 +9,7 @@ rm -f docker/zitadel/bootstrap/dashboard-credentials.json
 
 echo ""
 echo "==> Starting infrastructure..."
-docker compose up -d postgres redis zitadel zitadel-init
+docker compose up -d postgres redis vault zitadel zitadel-init zitadel-login zitadel-proxy
 
 echo ""
 echo "==> Waiting for services to be healthy..."
@@ -19,6 +19,14 @@ echo "  ✓ Postgres"
 
 until docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
 echo "  ✓ Redis"
+
+until docker compose exec -T vault vault status 2>/dev/null | grep -q "Version"; do sleep 1; done
+echo "  ✓ Vault running"
+
+# Wait for Vault init script to complete (transit key must exist)
+echo "  Waiting for Vault Transit key..."
+until docker compose exec -T vault vault read transit/keys/llmvault-key 2>/dev/null | grep -q "type"; do sleep 2; done
+echo "  ✓ Vault Transit key ready"
 
 until curl -sf http://localhost:8085/debug/ready >/dev/null 2>&1; do sleep 2; done
 echo "  ✓ ZITADEL"

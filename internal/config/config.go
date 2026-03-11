@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -21,7 +22,12 @@ type Config struct {
 	LogFormat string `env:"LOG_FORMAT,required"`
 
 	// Postgres
-	DatabaseURL string `env:"DATABASE_URL,required"`
+	DBHost     string `env:"DB_HOST,required"`
+	DBPort     int    `env:"DB_PORT" envDefault:"5432"`
+	DBUser     string `env:"DB_USER,required"`
+	DBPassword string `env:"DB_PASSWORD,required"`
+	DBName     string `env:"DB_NAME,required"`
+	DBSSLMode  string `env:"DB_SSLMODE" envDefault:"disable"`
 
 	// KMS (key wrapping for credential encryption)
 	KMSType   string `env:"KMS_TYPE,required"` // "aead", "awskms", or "vault"
@@ -88,6 +94,19 @@ func (c *Config) loadZitadelPATFile() {
 	if pat := strings.TrimSpace(string(data)); pat != "" {
 		c.ZitadelAdminPAT = pat
 	}
+}
+
+// DatabaseDSN constructs a Postgres connection string from individual fields.
+// The password is URL-encoded to handle special characters safely.
+func (c *Config) DatabaseDSN() string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		url.QueryEscape(c.DBUser),
+		url.QueryEscape(c.DBPassword),
+		c.DBHost,
+		c.DBPort,
+		c.DBName,
+		c.DBSSLMode,
+	)
 }
 
 // VaultConfig returns a crypto.VaultConfig populated from the Config.
