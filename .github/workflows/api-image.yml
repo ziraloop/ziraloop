@@ -13,15 +13,15 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
 
       - name: setup up qemu (for ARM64 cross-compilation)
         uses: docker/setup-qemu-action@v3
 
-      - name: set up docker buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -46,7 +46,7 @@ jobs:
           fi
 
       - name: build and push
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         with:
           context: .
           file: docker/Dockerfile
@@ -56,12 +56,10 @@ jobs:
           build-args: |
             VERSION=${{ steps.tags.outputs.version }}
             COMMIT=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: configure aws credentials
         uses: aws-actions/configure-aws-credentials@v4
