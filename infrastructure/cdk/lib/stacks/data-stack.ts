@@ -56,6 +56,7 @@ export class DataStack extends cdk.Stack {
       databaseName: "llmvault",
       credentials: rds.Credentials.fromGeneratedSecret("llmvault", {
         secretName: `${prefix}/rds-credentials`,
+        excludeCharacters: " %+~`#$&*()|[]{}:;<>?!'/@\"\\^",
       }),
 
       allocatedStorage: config.rdsAllocatedStorage,
