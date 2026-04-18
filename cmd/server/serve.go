@@ -146,7 +146,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(chimw.RequestID)
+	r.Use(middleware.RequestID)
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Recoverer)
 	r.Use(middleware.SecurityHeaders())
@@ -585,7 +585,7 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 
 	// MCP Server (separate port)
 	mcpRouter := chi.NewRouter()
-	mcpRouter.Use(chimw.RequestID)
+	mcpRouter.Use(middleware.RequestID)
 	mcpRouter.Use(chimw.RealIP)
 	mcpRouter.Use(chimw.Recoverer)
 	mcpRouter.Use(middleware.RequestLog(logger))
@@ -656,7 +656,10 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	return nil
 }
 
-func healthz(w http.ResponseWriter, _ *http.Request) {
+func healthz(w http.ResponseWriter, r *http.Request) {
+	if reqID := middleware.RequestIDFromContext(r.Context()); reqID != "" {
+		slog.Info("healthz", "request_id", reqID)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ok"}`))

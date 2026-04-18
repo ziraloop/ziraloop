@@ -11,7 +11,7 @@ import (
 
 // RequestLog returns middleware that writes a structured slog entry for every
 // request. It captures method, path, status, latency, client IP, and the
-// X-Request-Id set by Chi's RequestID middleware.
+// request_id set by the RequestID middleware.
 //
 // Sensitive headers (Authorization, Cookie) are never logged.
 func RequestLog(logger *slog.Logger) func(http.Handler) http.Handler {
@@ -34,7 +34,7 @@ func RequestLog(logger *slog.Logger) func(http.Handler) http.Handler {
 				slog.String("ip", clientIP(r)),
 			}
 
-			if reqID := chimw.GetReqID(r.Context()); reqID != "" {
+			if reqID := RequestIDFromContext(r.Context()); reqID != "" {
 				attrs = append(attrs, slog.String("request_id", reqID))
 			}
 			if org, ok := OrgFromContext(r.Context()); ok {
