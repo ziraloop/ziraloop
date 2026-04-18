@@ -153,6 +153,10 @@ func runServe(ctx context.Context, deps *bootstrap.Deps, enqueuer enqueue.TaskEn
 	r.Use(middleware.CORS(cfg.CORSOrigins))
 	r.Use(middleware.RequestLog(logger))
 
+	// Version endpoint (no auth)
+	versionHandler := handler.NewVersionHandler(version, commit)
+	r.Get("/v1/version", versionHandler.Serve)
+
 	// Health checks
 	r.Get("/healthz", healthz)
 	r.Get("/readyz", readyz(database, redisClient))
